@@ -1,3 +1,5 @@
+import re
+from urllib.parse import urlparse
 from flask import Flask, request, render_template_string
 
 app = Flask("phishguard")
@@ -25,12 +27,50 @@ HTML_TEMPLATE = """
   {% if hasil %}
   <div class="box">
     <strong>URL Diperiksa: {{ hasil.url }}</strong>
-    <p>{{ hasil.catatan }}</p>
+    <p>Skor Sementara: {{ hasil.skor }}</p>
+    <ul>
+      {% for item in hasil.indikator %}
+      <li>{{ item }}</li>
+      {% endfor %}
+    </ul>
   </div>
   {% endif %}
 </body>
 </html>
 """
+
+
+def normalisasi_url(raw_url: str) -> str:
+    bersih = raw_url.strip()
+    if not bersih.startswith(("http://", "https://")):
+        return "http://" + bersih
+    return bersih
+
+
+def analisis_struktur_dasar(raw_url: str) -> dict:
+    url = normalisasi_url(raw_url)
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+
+    skor = 0
+    indikator = []
+
+    if parsed.scheme != "https":
+        skor += 20
+        indikator.append("Tidak menggunakan protokol HTTPS.")
+
+    if re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", host):
+        skor += 35
+        indikator.append("Menggunakan alamat IP langsung sebagai host.")
+
+    if "@" in url:
+        skor += 30
+        indikator.append("Mengandung karakter '@' untuk mengaburkan tujuan domain.")
+
+    if not indikator:
+        indikator.append("Tidak ada indikasi pada pemeriksaan struktur dasar.")
+
+    return {"url": url, "skor": skor, "indikator": indikator}
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -40,10 +80,7 @@ def index():
     if request.method == "POST":
         url_input = request.form.get("url", "").strip()
         if url_input:
-            hasil = {
-                "url": url_input,
-                "catatan": "Tahap 1 aktif: input URL berhasil diterima server."
-            }
+            hasil = analisis_struktur_dasar(url_input)
     return render_template_string(HTML_TEMPLATE, hasil=hasil, url=url_input)
 
 
