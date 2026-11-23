@@ -6,6 +6,21 @@ app = Flask("phishguard")
 
 TLD_BERISIKO = {".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".click", ".zip"}
 
+KATA_KUNCI_PHISHING = {
+    "login",
+    "verify",
+    "update",
+    "secure",
+    "account",
+    "signin",
+    "akun",
+    "verifikasi",
+    "blokir",
+    "hadiah",
+    "klaim",
+    "sandi",
+}
+
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="id">
@@ -14,13 +29,15 @@ HTML_TEMPLATE = """
   <title>PhishGuard - Detektor Link Phishing</title>
   <style>
     body { font-family: Arial, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
-    input[type="text"] { width: 75%; padding: 8px; }
-    button { padding: 8px 14px; cursor: pointer; }
+    input[type="text"] { width: 70%; padding: 8px; }
+    button, .btn-reset { padding: 8px 12px; cursor: pointer; text-decoration: none; font-size: 14px; }
+    .btn-reset { border: 1px solid #bbb; color: #333; border-radius: 3px; margin-left: 4px; }
     .box { margin-top: 20px; padding: 14px; border: 1px solid #ccc; border-radius: 6px; }
     .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 13px; font-weight: bold; }
     .badge-aman { background: #e6f4ea; color: #137333; }
     .badge-waspada { background: #fef7e0; color: #b06000; }
     .badge-tinggi { background: #fce8e6; color: #c5221f; }
+    .meta { color: #555; font-size: 13px; margin-top: 4px; }
   </style>
 </head>
 <body>
@@ -28,6 +45,7 @@ HTML_TEMPLATE = """
   <form method="POST">
     <input type="text" name="url" placeholder="Masukkan link yang ingin dicek..." value="{{ url or '' }}" required>
     <button type="submit">Cek Link</button>
+    <a class="btn-reset" href="/">Reset</a>
   </form>
 
   {% if hasil %}
@@ -37,6 +55,7 @@ HTML_TEMPLATE = """
       Status: <span class="badge {{ hasil.badge_class }}">{{ hasil.status }}</span>
       &nbsp;|&nbsp; Skor: <strong>{{ hasil.skor }}</strong>
     </p>
+    <div class="meta">Jumlah temuan indikator: {{ hasil.jumlah_indikator }}</div>
     <ul>
       {% for item in hasil.indikator %}
       <li>{{ item }}</li>
@@ -96,6 +115,17 @@ def cek_phishing(raw_url: str) -> dict:
         skor += 25
         indikator.append("Menggunakan ekstensi domain (TLD) yang sering muncul pada link mencurigakan.")
 
+    jalur_dan_query = f"{parsed.path} {parsed.query}".lower()
+    kata_ditemukan = [
+        k for k in KATA_KUNCI_PHISHING if re.search(rf"\b{re.escape(k)}\b", jalur_dan_query)
+    ]
+    if kata_ditemukan:
+        skor += 15
+        indikator.append(
+            f"Mengandung kata kunci pancingan pada URL: {', '.join(sorted(kata_ditemukan))}."
+        )
+
+    jumlah_indikator = len(indikator)
     if not indikator:
         indikator.append("Tidak ditemukan pola mencurigakan pada aturan heuristik saat ini.")
 
@@ -106,6 +136,7 @@ def cek_phishing(raw_url: str) -> dict:
         "skor": skor,
         "status": status,
         "badge_class": badge_class,
+        "jumlah_indikator": jumlah_indikator,
         "indikator": indikator,
     }
 
