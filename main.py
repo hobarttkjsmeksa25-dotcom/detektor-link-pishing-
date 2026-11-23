@@ -17,6 +17,10 @@ HTML_TEMPLATE = """
     input[type="text"] { width: 75%; padding: 8px; }
     button { padding: 8px 14px; cursor: pointer; }
     .box { margin-top: 20px; padding: 14px; border: 1px solid #ccc; border-radius: 6px; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 13px; font-weight: bold; }
+    .badge-aman { background: #e6f4ea; color: #137333; }
+    .badge-waspada { background: #fef7e0; color: #b06000; }
+    .badge-tinggi { background: #fce8e6; color: #c5221f; }
   </style>
 </head>
 <body>
@@ -29,7 +33,10 @@ HTML_TEMPLATE = """
   {% if hasil %}
   <div class="box">
     <strong>URL Diperiksa: {{ hasil.url }}</strong>
-    <p>Skor Sementara: {{ hasil.skor }}</p>
+    <p>
+      Status: <span class="badge {{ hasil.badge_class }}">{{ hasil.status }}</span>
+      &nbsp;|&nbsp; Skor: <strong>{{ hasil.skor }}</strong>
+    </p>
     <ul>
       {% for item in hasil.indikator %}
       <li>{{ item }}</li>
@@ -47,6 +54,14 @@ def normalisasi_url(raw_url: str) -> str:
     if not bersih.startswith(("http://", "https://")):
         return "http://" + bersih
     return bersih
+
+
+def klasifikasi_risiko(skor: int) -> tuple[str, str]:
+    if skor >= 50:
+        return "Berisiko Tinggi", "badge-tinggi"
+    if skor >= 25:
+        return "Waspada / Mencurigakan", "badge-waspada"
+    return "Relatif Aman", "badge-aman"
 
 
 def cek_phishing(raw_url: str) -> dict:
@@ -84,7 +99,15 @@ def cek_phishing(raw_url: str) -> dict:
     if not indikator:
         indikator.append("Tidak ditemukan pola mencurigakan pada aturan heuristik saat ini.")
 
-    return {"url": url, "skor": skor, "indikator": indikator}
+    status, badge_class = klasifikasi_risiko(skor)
+
+    return {
+        "url": url,
+        "skor": skor,
+        "status": status,
+        "badge_class": badge_class,
+        "indikator": indikator,
+    }
 
 
 @app.route("/", methods=["GET", "POST"])
