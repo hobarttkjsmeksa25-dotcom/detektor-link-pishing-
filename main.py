@@ -87,6 +87,7 @@ def cek_phishing(raw_url: str) -> dict:
     url = normalisasi_url(raw_url)
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
+    is_ip = bool(re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", host))
 
     skor = 0
     indikator = []
@@ -95,13 +96,17 @@ def cek_phishing(raw_url: str) -> dict:
         skor += 20
         indikator.append("Tidak menggunakan protokol HTTPS.")
 
-    if re.fullmatch(r"\d{1,3}(\.\d{1,3}){3}", host):
+    if is_ip:
         skor += 35
         indikator.append("Menggunakan alamat IP langsung sebagai host.")
 
     if "@" in url:
         skor += 30
         indikator.append("Mengandung karakter '@' untuk mengaburkan tujuan domain.")
+
+    if not is_ip and host.count(".") >= 3:
+        skor += 15
+        indikator.append("Memiliki banyak subdomain berlapis pada nama host.")
 
     if host.count("-") >= 2:
         skor += 20
