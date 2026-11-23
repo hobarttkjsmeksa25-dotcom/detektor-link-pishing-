@@ -67,6 +67,14 @@ def analisis_struktur_dasar(raw_url: str) -> dict:
         skor += 30
         indikator.append("Mengandung karakter '@' untuk mengaburkan tujuan domain.")
 
+    if host.count("-") >= 2:
+        skor += 20
+        indikator.append("Nama domain memiliki banyak tanda hubung ('-').")
+
+    if len(url) > 75:
+        skor += 15
+        indikator.append("Panjang URL melebihi 75 karakter.")
+
     if not indikator:
         indikator.append("Tidak ada indikasi pada pemeriksaan struktur dasar.")
 
