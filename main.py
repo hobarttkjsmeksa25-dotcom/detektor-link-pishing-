@@ -4,6 +4,8 @@ from flask import Flask, request, render_template_string
 
 app = Flask("phishguard")
 
+TLD_BERISIKO = {".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".click", ".zip"}
+
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="id">
@@ -47,7 +49,7 @@ def normalisasi_url(raw_url: str) -> str:
     return bersih
 
 
-def analisis_struktur_dasar(raw_url: str) -> dict:
+def cek_phishing(raw_url: str) -> dict:
     url = normalisasi_url(raw_url)
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
@@ -75,8 +77,12 @@ def analisis_struktur_dasar(raw_url: str) -> dict:
         skor += 15
         indikator.append("Panjang URL melebihi 75 karakter.")
 
+    if any(host.endswith(tld) for tld in TLD_BERISIKO):
+        skor += 25
+        indikator.append("Menggunakan ekstensi domain (TLD) yang sering muncul pada link mencurigakan.")
+
     if not indikator:
-        indikator.append("Tidak ada indikasi pada pemeriksaan struktur dasar.")
+        indikator.append("Tidak ditemukan pola mencurigakan pada aturan heuristik saat ini.")
 
     return {"url": url, "skor": skor, "indikator": indikator}
 
@@ -88,7 +94,7 @@ def index():
     if request.method == "POST":
         url_input = request.form.get("url", "").strip()
         if url_input:
-            hasil = analisis_struktur_dasar(url_input)
+            hasil = cek_phishing(url_input)
     return render_template_string(HTML_TEMPLATE, hasil=hasil, url=url_input)
 
 
